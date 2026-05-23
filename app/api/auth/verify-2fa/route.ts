@@ -1,29 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyStepUpToken, signSessionToken } from "@/lib/jwt";
-import { verifyOTP } from "@/lib/otp";
-
-// ─── Mock TOTP secret store ───────────────────────────────────────────────────
-// In production: query your DB by userId (e.g. `await db.user.findUnique(...)`)
-
-const TOTP_SECRETS: Record<string, string> = {
-  usr_admin_01: "KVKVE43VJB2F6ZDNLVRE2V2VKREUCU2K",
-  usr_teacher_01: "KVKVE43VJB2F6ZDNLVRE2V2VKREUCU2K",
-};
-
-// ─── Route handler ────────────────────────────────────────────────────────────
+import { verifyAndConsumeOTP } from "@/lib/email-otp-store";
 
 /**
  * POST /api/auth/verify-2fa
  *
- * Phase 2 of the two-phase login flow.
+ * Phase 2: validate the emailed OTP and promote to a full session.
  *
- * Reads the `step_up` httpOnly cookie (set by /api/auth/login),
- * verifies it is a valid, unexpired step-up JWT, then validates the
- * submitted 6-digit TOTP code against the user's stored secret.
- *
- * On success → 200 { success: true, redirectTo }
- *              + full `session` cookie (7 days)
- *              + `step_up` cookie cleared
+ * On success → 200 { success: true, redirectTo } + session cookie + step_up cleared
  * On failure → 400 / 401 { error: string }
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -39,7 +23,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
     return NextResponse.json(
-      { error: "A valid 6-digit numeric OTP code is required." },
+      { error: "A valid 6-digit code is required." },
       { status: 400 }
     );
   }
@@ -56,24 +40,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const stepUp = await verifyStepUpToken(stepUpCookie);
   if (!stepUp) {
     return NextResponse.json(
-      { error: "Verification session expired or invalid. Please log in again." },
+      { error: "Verification session expired. Please log in again." },
       { status: 401 }
     );
   }
 
-  // ── Validate TOTP code ────────────────────────────────────────────────────
-  const totpSecret = TOTP_SECRETS[stepUp.userId];
-  if (!totpSecret) {
-    return NextResponse.json(
-      { error: "2FA is not configured for this account." },
-      { status: 400 }
-    );
-  }
-
-  const isValid = await verifyOTP(code, totpSecret);
+  // ── Validate emailed OTP ──────────────────────────────────────────────────
+  const isValid = verifyAndConsumeOTP(stepUp.userId, code);
   if (!isValid) {
     return NextResponse.json(
-      { error: "Invalid or expired OTP code. Check your authenticator app." },
+      { error: "Invalid or expired code. Check your email and try again." },
       { status: 401 }
     );
   }
@@ -88,7 +64,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 
   const redirectTo = stepUp.role === "admin" ? "/admin/dashboard" : "/teacher/classes";
-
   const res = NextResponse.json({ success: true, redirectTo }, { status: 200 });
 
   res.cookies.set("session", sessionToken, {
@@ -98,7 +73,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     maxAge: 7 * 24 * 60 * 60,
     path: "/",
   });
-
   res.cookies.delete("step_up");
 
   return res;

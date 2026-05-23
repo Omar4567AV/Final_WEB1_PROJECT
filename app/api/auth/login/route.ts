@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signSessionToken, signStepUpToken } from "@/lib/jwt";
-
-// ─── Mock user store ──────────────────────────────────────────────────────────
-// Replace with a real DB query (e.g. Prisma / D1) and bcrypt.compare() in production.
+import { generateOTP, storeOTP } from "@/lib/email-otp-store";
+import { sendOTPEmail } from "@/lib/email";
 
 interface MockUser {
   id: string;
   email: string;
-  passwordHash: string; // plaintext here only for demo
+  passwordHash: string;
   role: "admin" | "teacher";
   name: string;
   has2FA: boolean;
-  totpSecret: string;
 }
 
 const USERS: MockUser[] = [
@@ -22,7 +20,6 @@ const USERS: MockUser[] = [
     role: "admin",
     name: "System Admin",
     has2FA: true,
-    totpSecret: "KVKVE43VJB2F6ZDNLVRE2V2VKREUCU2K",
   },
   {
     id: "usr_teacher_01",
@@ -31,20 +28,17 @@ const USERS: MockUser[] = [
     role: "teacher",
     name: "Faculty Member",
     has2FA: true,
-    totpSecret: "KVKVE43VJB2F6ZDNLVRE2V2VKREUCU2K",
   },
 ];
-
-// ─── Route handler ────────────────────────────────────────────────────────────
 
 /**
  * POST /api/auth/login
  *
- * Phase 1 of the two-phase login flow.
+ * Phase 1: verify password → send OTP to user's email → return step_up cookie.
  *
- * On success with 2FA enabled  → 200 { requires2FA: true } + step_up cookie (5 min)
- * On success without 2FA       → 200 { success: true }     + session cookie (7 days)
- * On failure                   → 401 { error: string }
+ * On success with 2FA  → 200 { requires2FA: true } + step_up cookie (5 min)
+ * On success no 2FA    → 200 { success: true }     + session cookie (7 days)
+ * On failure           → 401 { error: string }
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: { email?: unknown; password?: unknown };
@@ -61,7 +55,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
   }
 
-  // Simulate constant-time lookup to prevent user-enumeration via timing
+  // Constant-time-ish delay to prevent user enumeration via timing
   await new Promise((r) => setTimeout(r, 80 + Math.random() * 40));
 
   const user = USERS.find((u) => u.email === email && u.passwordHash === password);
@@ -70,8 +64,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
-  // ── 2FA enabled: issue step-up token, stop here ──────────────────────────
+  // ── 2FA: generate OTP, email it, issue step-up cookie ───────────────────
   if (user.has2FA) {
+    const otp = generateOTP();
+    storeOTP(user.id, otp);
+
+    try {
+      await sendOTPEmail(user.email, otp);
+    } catch (err) {
+      console.error("Failed to send OTP email:", err);
+      return NextResponse.json(
+        { error: "Could not send verification email. Try again." },
+        { status: 500 }
+      );
+    }
+
     const stepUpToken = await signStepUpToken({
       userId: user.id,
       email: user.email,

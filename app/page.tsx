@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,14 +7,37 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('admin');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === 'admin') {
-      router.push('/admin/dashboard');
-    } else {
-      router.push('/teacher/classes');
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? 'Login failed.');
+        return;
+      }
+
+      if (data.requires2FA) {
+        router.push('/auth/2fa');
+      } else {
+        router.push(data.redirectTo ?? '/');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -26,19 +49,13 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-slate-500">Access your academic control workspace</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Portal Role</label>
-            <select 
-              value={role} 
-              onChange={(e) => setRole(e.target.value)}
-              className="block w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
-              <option value="admin">System Administrator</option>
-              <option value="teacher">Faculty Member / Teacher</option>
-            </select>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-medium rounded-md border border-red-100">
+            {error}
           </div>
+        )}
 
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Email address</label>
             <input
@@ -52,7 +69,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Security Password</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Password</label>
             <input
               type="password"
               required
@@ -65,9 +82,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="flex w-full justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            disabled={loading}
+            className="flex w-full justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors disabled:opacity-50"
           >
-            Authenticate Portal Session
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
       </div>
