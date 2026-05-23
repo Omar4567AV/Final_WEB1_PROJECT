@@ -1,4 +1,4 @@
-'use client'
+ï»¿'use client'
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,6 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Real application validation would execute here securely
     if (role === 'admin') {
       router.push('/admin/dashboard');
     } else {
@@ -59,7 +58,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               className="block w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none"
             />
           </div>
