@@ -20,6 +20,7 @@ export interface StepUpPayload extends JWTPayload {
   role: "admin" | "teacher";
   name: string;
   phase: "awaiting-2fa";
+  otp: string;
 }
 
 // ─── Sign helpers ─────────────────────────────────────────────────────────────

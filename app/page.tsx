@@ -28,7 +28,7 @@ export default function LoginPage() {
       }
 
       if (data.requires2FA) {
-        window.location.href = '/auth/2fa';
+        window.location.href = '/verify';
       } else {
         window.location.href = data.redirectTo ?? '/';
       }

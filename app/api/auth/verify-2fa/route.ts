@@ -1,34 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyStepUpToken, signSessionToken } from "@/lib/jwt";
-import { verifyAndConsumeOTP } from "@/lib/email-otp-store";
 
-/**
- * POST /api/auth/verify-2fa
- *
- * Phase 2: validate the emailed OTP and promote to a full session.
- *
- * On success → 200 { success: true, redirectTo } + session cookie + step_up cleared
- * On failure → 400 / 401 { error: string }
- */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: { code?: unknown };
 
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
   const { code } = body;
 
   if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
-    return NextResponse.json(
-      { error: "A valid 6-digit code is required." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "A valid 6-digit code is required." }, { status: 400 });
   }
 
-  // ── Validate step-up token ────────────────────────────────────────────────
   const stepUpCookie = req.cookies.get("step_up")?.value;
   if (!stepUpCookie) {
     return NextResponse.json(
@@ -45,16 +32,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // ── Validate emailed OTP ──────────────────────────────────────────────────
-  const isValid = verifyAndConsumeOTP(stepUp.userId, code);
-  if (!isValid) {
+  // OTP is inside the signed JWT — compare directly
+  if (stepUp.otp !== code) {
     return NextResponse.json(
       { error: "Invalid or expired code. Check your email and try again." },
       { status: 401 }
     );
   }
 
-  // ── Promote to full session ───────────────────────────────────────────────
   const sessionToken = await signSessionToken({
     userId: stepUp.userId,
     email: stepUp.email,

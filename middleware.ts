@@ -2,27 +2,24 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySessionToken } from "@/lib/jwt";
 
-export default async function proxy(request: NextRequest): Promise<NextResponse> {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   const isAdminPage    = pathname.startsWith("/admin");
   const isTeacherRoute = pathname.startsWith("/teacher");
-  const is2FARoute     = pathname === "/auth/2fa";
+  const is2FARoute     = pathname === "/verify";
   const isAuthApi      = pathname.startsWith("/api/auth");
   const isRootPage     = pathname === "/";
 
   let payload = null;
-
   try {
     const sessionCookie = request.cookies.get("session")?.value;
-    if (sessionCookie) {
-      payload = await verifySessionToken(sessionCookie);
-    }
+    if (sessionCookie) payload = await verifySessionToken(sessionCookie);
   } catch {
-    // invalid token — treat as unauthenticated
+    // treat as unauthenticated
   }
 
-  // Not logged in
+  // Not logged in — only block admin/teacher, allow 2FA page through
   if (!payload) {
     if (isAdminPage || isTeacherRoute) {
       return NextResponse.redirect(new URL("/", request.url));
@@ -30,14 +27,14 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     return NextResponse.next();
   }
 
-  // Logged in but OTP not done yet
+  // Logged in but OTP not verified — force to 2FA page
   if (!payload.is2FAVerified && !is2FARoute && !isAuthApi) {
-    return NextResponse.redirect(new URL("/auth/2fa", request.url));
+    return NextResponse.redirect(new URL("/verify", request.url));
   }
 
   // Fully logged in
   if (payload.is2FAVerified) {
-    if (is2FARoute || isRootPage) {
+    if (isRootPage) {
       const dest = payload.role === "admin" ? "/admin/dashboard" : "/teacher/classes";
       return NextResponse.redirect(new URL(dest, request.url));
     }

@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signSessionToken, signStepUpToken } from "@/lib/jwt";
-import { generateOTP, storeOTP } from "@/lib/email-otp-store";
 import { sendOTPEmail } from "@/lib/email";
 
-export const runtime = "nodejs";
-
-interface MockUser {
+interface User {
   id: string;
   email: string;
-  passwordHash: string;
+  password: string;
   role: "admin" | "teacher";
   name: string;
   has2FA: boolean;
 }
 
-const USERS: MockUser[] = [
+const USERS: User[] = [
   {
     id: "usr_admin_01",
     email: "fawazhalabi71739709@gmail.com",
-    passwordHash: "123",
+    password: "123",
     role: "admin",
     name: "Fawaz Halabi",
     has2FA: true,
@@ -26,7 +23,7 @@ const USERS: MockUser[] = [
   {
     id: "usr_teacher_01",
     email: "ohalabi68@gmail.com",
-    passwordHash: "123",
+    password: "123",
     role: "teacher",
     name: "Omar Halabi",
     has2FA: false,
@@ -34,29 +31,24 @@ const USERS: MockUser[] = [
   {
     id: "usr_teacher_02",
     email: "teacher2@university.edu",
-    passwordHash: "Teacher@2024",
+    password: "Teacher@2024",
     role: "teacher",
     name: "Second Teacher",
     has2FA: true,
   },
 ];
 
-/**
- * POST /api/auth/login
- *
- * Phase 1: verify password → send OTP to user's email → return step_up cookie.
- *
- * On success with 2FA  → 200 { requires2FA: true } + step_up cookie (5 min)
- * On success no 2FA    → 200 { success: true }     + session cookie (7 days)
- * On failure           → 401 { error: string }
- */
+function generateOTP(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: { email?: unknown; password?: unknown };
 
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
   const { email, password } = body;
@@ -65,19 +57,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
   }
 
-  // Constant-time-ish delay to prevent user enumeration via timing
   await new Promise((r) => setTimeout(r, 80 + Math.random() * 40));
 
-  const user = USERS.find((u) => u.email === email && u.passwordHash === password);
+  const user = USERS.find((u) => u.email === email && u.password === password);
 
   if (!user) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
-  // ── 2FA: generate OTP, email it, issue step-up cookie ───────────────────
+  // 2FA — generate OTP, embed in step_up JWT, send email
   if (user.has2FA) {
     const otp = generateOTP();
-    storeOTP(user.id, otp);
 
     try {
       await sendOTPEmail(user.email, otp);
@@ -90,12 +80,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // OTP is stored inside the signed JWT — no in-memory store needed
     const stepUpToken = await signStepUpToken({
       userId: user.id,
       email: user.email,
       role: user.role,
       name: user.name,
       phase: "awaiting-2fa",
+      otp,
     });
 
     const res = NextResponse.json({ requires2FA: true }, { status: 200 });
@@ -104,12 +96,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 5 * 60,
-      path: "/api/auth/verify-2fa",
+      path: "/",
     });
     return res;
   }
 
-  // ── No 2FA: grant full session immediately ───────────────────────────────
+  // No 2FA — grant session immediately
   const sessionToken = await signSessionToken({
     userId: user.id,
     email: user.email,
