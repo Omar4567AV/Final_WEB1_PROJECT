@@ -15,18 +15,26 @@ interface MockUser {
 const USERS: MockUser[] = [
   {
     id: "usr_admin_01",
-    email: "admin@university.edu",
-    passwordHash: "password123",
+    email: "fawazhalabi71739709@gmail.com",
+    passwordHash: "123",
     role: "admin",
-    name: "System Admin",
-    has2FA: true,
+    name: "Fawaz Halabi",
+    has2FA: false,
   },
   {
     id: "usr_teacher_01",
-    email: "teacher@university.edu",
-    passwordHash: "password123",
+    email: "ohalabi68@gmail.com",
+    passwordHash: "123",
     role: "teacher",
-    name: "Faculty Member",
+    name: "Omar Halabi",
+    has2FA: false,
+  },
+  {
+    id: "usr_teacher_02",
+    email: "teacher2@university.edu",
+    passwordHash: "Teacher@2024",
+    role: "teacher",
+    name: "Second Teacher",
     has2FA: true,
   },
 ];
