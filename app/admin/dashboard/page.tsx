@@ -21,7 +21,11 @@ export default function AdminDashboard() {
             <dt className="truncate text-xs font-semibold uppercase tracking-wider text-slate-500">{item.name}</dt>
             <dd className="mt-1 flex items-baseline justify-between md:block lg:flex">
               <div className="text-2xl font-bold text-slate-900">{item.value}</div>
-              <div className={inline-flex items-baseline px-2.5 py-0.5 rounded-full text-xs font-medium md:mt-2 lg:mt-0 }>
+              <div className={
+                item.changeType === 'positive' 
+                  ? 'inline-flex items-baseline px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700' 
+                  : 'inline-flex items-baseline px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700'
+              }>
                 {item.change}
               </div>
             </dd>
