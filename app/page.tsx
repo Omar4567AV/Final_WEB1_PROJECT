@@ -1,10 +1,8 @@
 'use client'
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,9 +28,9 @@ export default function LoginPage() {
       }
 
       if (data.requires2FA) {
-        router.push('/auth/2fa');
+        window.location.href = '/auth/2fa';
       } else {
-        router.push(data.redirectTo ?? '/');
+        window.location.href = data.redirectTo ?? '/';
       }
     } catch {
       setError('Network error. Please try again.');
@@ -42,9 +40,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-[85vh] flex-col justify-center px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col justify-center bg-slate-50 px-6 lg:px-8">
       <div className="sm:mx-auto w-full sm:max-w-md bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm text-center mb-6">
+        <div className="text-center mb-6">
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Sign in to EduManage</h2>
           <p className="mt-1 text-sm text-slate-500">Access your academic control workspace</p>
         </div>

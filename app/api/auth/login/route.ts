@@ -3,6 +3,8 @@ import { signSessionToken, signStepUpToken } from "@/lib/jwt";
 import { generateOTP, storeOTP } from "@/lib/email-otp-store";
 import { sendOTPEmail } from "@/lib/email";
 
+export const runtime = "nodejs";
+
 interface MockUser {
   id: string;
   email: string;
@@ -19,7 +21,7 @@ const USERS: MockUser[] = [
     passwordHash: "123",
     role: "admin",
     name: "Fawaz Halabi",
-    has2FA: false,
+    has2FA: true,
   },
   {
     id: "usr_teacher_01",
@@ -80,9 +82,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       await sendOTPEmail(user.email, otp);
     } catch (err) {
-      console.error("Failed to send OTP email:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Failed to send OTP email:", message);
       return NextResponse.json(
-        { error: "Could not send verification email. Try again." },
+        { error: `Could not send verification email: ${message}` },
         { status: 500 }
       );
     }

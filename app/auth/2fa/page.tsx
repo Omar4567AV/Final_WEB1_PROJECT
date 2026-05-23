@@ -1,10 +1,8 @@
 'use client'
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function TwoFactorPage() {
-  const router = useRouter();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,7 +26,7 @@ export default function TwoFactorPage() {
         return;
       }
 
-      router.push(data.redirectTo ?? '/');
+      window.location.href = data.redirectTo ?? '/';
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -63,7 +61,7 @@ export default function TwoFactorPage() {
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
               placeholder="000000"
-              className="block w-full tracking-[0.5em] text-center font-mono text-lg rounded-md border border-slate-200 bg-slate-50 px-3 py-2 focus:border-blue-500 focus:outline-none"
+              className="block w-full tracking-[0.5em] text-center font-mono text-lg text-slate-900 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 focus:border-blue-500 focus:outline-none"
             />
           </div>
 
