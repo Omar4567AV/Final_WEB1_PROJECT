@@ -13,7 +13,6 @@ export async function sendOTPEmail(to: string, otp: string): Promise<void> {
     from: `"EduManage Security" <${process.env.GMAIL_USER}>`,
     to,
     subject: "Your EduManage login code",
-    text: `Your verification code is: ${otp}\n\nIt expires in 5 minutes. Do not share it with anyone.`,
     html: `
       <div style="font-family:sans-serif;max-width:420px;margin:0 auto;padding:24px">
         <h2 style="color:#1e293b;margin-bottom:8px">EduManage Login Verification</h2>
